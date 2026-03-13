@@ -39,24 +39,13 @@ public class FilmController {
 
 
     @PutMapping
-<<<<<<< HEAD
     public Film update(@Valid @RequestBody Film film) {
-=======
-    public Film update(@Valid @RequestBody Film film) { // Добавили @Valid
->>>>>>> ea621d4d6a52688b6965cb2860a54fd3a74d2f93
         log.info("Получен запрос на обновление фильма: {}", film);
 
         if (!films.containsKey(film.getId())) {
             log.warn("Ошибка обновления: фильм с id {} не найден", film.getId());
             throw new NotFoundException("Фильм с ID " + film.getId() + " не найден");
         }
-
-<<<<<<< HEAD
-        validateReleaseDate(film);
-=======
-        validateReleaseDate(film); // Проверяем только специфичную дату
-
->>>>>>> ea621d4d6a52688b6965cb2860a54fd3a74d2f93
         films.put(film.getId(), film);
         log.info("Фильм успешно обновлен: {}", film);
         return film;

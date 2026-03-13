@@ -36,11 +36,7 @@ public class UserController {
 
 
     @PutMapping
-<<<<<<< HEAD
-    public User update(@Valid @RequestBody User user) {
-=======
     public User update(@Valid @RequestBody User user) { // Добавили @Valid
->>>>>>> ea621d4d6a52688b6965cb2860a54fd3a74d2f93
         log.info("Получен запрос на обновление пользователя: {}", user);
 
         if (!users.containsKey(user.getId())) {
