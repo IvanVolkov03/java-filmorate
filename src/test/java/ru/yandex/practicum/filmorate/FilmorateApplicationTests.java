@@ -1,135 +1,196 @@
 package ru.yandex.practicum.filmorate;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import ru.yandex.practicum.filmorate.controller.FilmController;
-import ru.yandex.practicum.filmorate.controller.UserController;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.User;
 import java.time.LocalDate;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@AutoConfigureMockMvc
 class FilmorateApplicationTests {
-    @Autowired
-    private FilmController filmController;
 
     @Autowired
-    private UserController userController;
+    private MockMvc mockMvc;
 
-    @Test
-    void contextLoads() {
-        assertNotNull(filmController);
-        assertNotNull(userController);
-    }
+    @Autowired
+    private ObjectMapper objectMapper;
 
     // Тесты Film
 
     @Test
-    void shouldCreateValidFilm() {
+    @DisplayName("Должен успешно создать корректный фильм")
+    void shouldCreateValidFilm() throws Exception {
         Film film = new Film();
         film.setName("Inception");
         film.setDescription("Dream within a dream");
         film.setReleaseDate(LocalDate.of(2010, 7, 16));
         film.setDuration(148);
-
-        Film saved = filmController.create(film);
-        assertNotNull(saved);
-        assertTrue(saved.getId() > 0);
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(film)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.name").value("Inception"));
     }
 
     @Test
-    void shouldFailFilmWithEmptyName() {
+    @DisplayName("Должен вернуть 400 при пустом названии фильма")
+    void shouldFailFilmWithEmptyName() throws Exception {
         Film film = new Film();
-        film.setName(""); // Ошибка: пустое имя
-        assertThrows(ValidationException.class, () -> filmController.create(film));
+        film.setName(""); // Ошибка: @NotBlank
+        film.setDescription("Description");
+        film.setReleaseDate(LocalDate.now());
+        film.setDuration(100);
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(film)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldFailFilmWithTooLongDescription() {
+    @DisplayName("Должен вернуть 400 при описании фильма > 200 символов")
+    void shouldFailFilmWithTooLongDescription() throws Exception {
         Film film = new Film();
         film.setName("Movie");
-        film.setDescription("A".repeat(201)); // Ошибка: > 200 символов
-        assertThrows(ValidationException.class, () -> filmController.create(film));
+        film.setDescription("A".repeat(201)); // Ошибка: @Size(max=200)
+        film.setReleaseDate(LocalDate.now());
+        film.setDuration(100);
+
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(film)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldFailFilmWithEarlyReleaseDate() {
+    @DisplayName("Должен вернуть 400 при дате релиза раньше 28.12.1895")
+    void shouldFailFilmWithEarlyReleaseDate() throws Exception {
         Film film = new Film();
         film.setName("Old Movie");
-        film.setReleaseDate(LocalDate.of(1895, 12, 27)); // Ошибка: раньше 28.12.1895
-        assertThrows(ValidationException.class, () -> filmController.create(film));
+        film.setReleaseDate(LocalDate.of(1895, 12, 27));
+        film.setDuration(100);
+
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(film)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldFailFilmWithNegativeDuration() {
+    @DisplayName("Должен вернуть 400 при отрицательной длительности фильма")
+    void shouldFailFilmWithNegativeDuration() throws Exception {
         Film film = new Film();
         film.setName("Fast");
-        film.setDuration(-10); // Ошибка: отрицательная длительность
-        assertThrows(ValidationException.class, () -> filmController.create(film));
+        film.setDuration(-10); // Ошибка: @Positive
+
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(film)))
+                .andExpect(status().isBadRequest());
     }
 
-    @Test
-    void shouldUpdateFilmSuccessfully() {
-        Film film = new Film();
-        film.setName("Original");
-        film.setReleaseDate(LocalDate.of(2000, 1, 1));
-        film.setDuration(100);
-        Film created = filmController.create(film);
-        created.setName("Updated");
-        Film updated = filmController.update(created);
-        assertEquals("Updated", updated.getName());
-    }
-
-    // Тесты User
+    // Тесты для User
 
     @Test
-    void shouldCreateValidUser() {
+    @DisplayName("Должен успешно создать корректного пользователя")
+    void shouldCreateValidUser() throws Exception {
         User user = new User();
-        user.setEmail("test@gmail.com");
+        user.setEmail("test@yandex.ru");
+        user.setLogin("tester");
+        user.setName("John Doe");
+        user.setBirthday(LocalDate.of(1990, 1, 1));
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").exists());
+    }
+
+    @Test
+    @DisplayName("Должен вернуть 400 при некорректном формате Email")
+    void shouldFailUserWithInvalidEmail() throws Exception {
+        User user = new User();
+        user.setEmail("invalid-email"); // Ошибка: @Email
         user.setLogin("tester");
         user.setBirthday(LocalDate.of(1990, 1, 1));
-        User saved = userController.create(user);
-        assertNotNull(saved);
-        assertEquals("tester", saved.getName()); // Проверка: имя взято из логина
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldFailUserWithInvalidEmail() {
-        User user = new User();
-        user.setEmail("bad-email"); // Ошибка: нет @
-        user.setLogin("login");
-        assertThrows(ValidationException.class, () -> userController.create(user));
-    }
-
-    @Test
-    void shouldFailUserWithSpacesInLogin() {
+    @DisplayName("Должен вернуть 400 при пустом логине")
+    void shouldFailUserWithSpacesInLogin() throws Exception {
         User user = new User();
         user.setEmail("mail@mail.ru");
-        user.setLogin("my login"); // Ошибка: пробел
-        assertThrows(ValidationException.class, () -> userController.create(user));
+        user.setLogin("my login");
+        user.setBirthday(LocalDate.of(1990, 1, 1));
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldFailUserWithFutureBirthday() {
+    @DisplayName("Должен подставить логин в имя, если оно пустое")
+    void shouldSetLoginAsNameIfNameIsEmpty() throws Exception {
         User user = new User();
         user.setEmail("mail@mail.ru");
-        user.setLogin("login");
-        user.setBirthday(LocalDate.now().plusDays(1)); // Ошибка: в будущем
-        assertThrows(ValidationException.class, () -> userController.create(user));
+        user.setLogin("only_login");
+        user.setName(""); // Должно замениться на only_login
+        user.setBirthday(LocalDate.of(1990, 1, 1));
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("only_login"));
     }
 
     @Test
-    void shouldUpdateUserWithExistingId() {
+    @DisplayName("Должен вернуть 400 при дате рождения в будущем")
+    void shouldFailUserWithFutureBirthday() throws Exception {
         User user = new User();
-        user.setEmail("user@mail.ru");
-        user.setLogin("old_login");
-        user.setBirthday(LocalDate.of(1980, 5, 5));
-        User created = userController.create(user);
-        created.setLogin("new_login");
-        User updated = userController.update(created);
-        assertEquals("new_login", updated.getLogin());
+        user.setEmail("mail@mail.ru");
+        user.setLogin("tester");
+        user.setBirthday(LocalDate.now().plusDays(1)); // Ошибка: @PastOrPresent
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Должен успешно обновить существующего пользователя")
+    void shouldUpdateUserSuccessfully() throws Exception {
+        User user = new User();
+        user.setEmail("update@mail.ru");
+        user.setLogin("updater");
+        user.setBirthday(LocalDate.of(1990, 1, 1));
+
+        user.setId(1);
+        user.setName("Updated Name");
+        mockMvc.perform(put("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Updated Name"));
     }
 }
