@@ -21,6 +21,6 @@ public interface UserStorage {
     void removeFriend(int userId, int friendId);
 
     Set<Integer> getFriends(int userId);
-    
+
     Set<Integer> getCommonFriends(int userId, int otherUserId);
 }
