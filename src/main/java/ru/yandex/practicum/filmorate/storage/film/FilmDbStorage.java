@@ -233,8 +233,8 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     private void validateReleaseDate(Film film) {
-        LocalDate CINEMA_BIRTHDAY = LocalDate.of(1895, 12, 28);
-        if (film.getReleaseDate() != null && film.getReleaseDate().isBefore(CINEMA_BIRTHDAY)) {
+        LocalDate cinema_birthday = LocalDate.of(1895, 12, 28);
+        if (film.getReleaseDate() != null && film.getReleaseDate().isBefore(cinema_birthday)) {
             throw new ru.yandex.practicum.filmorate.exception.ValidationException(
                     "Дата релиза — не раньше 28 декабря 1895 года."
             );
