@@ -3,15 +3,18 @@ package ru.yandex.practicum.filmorate.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.mpa.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -88,30 +91,44 @@ public class FilmService {
         }
     }
 
-    private void validateGenres(Set<Integer> genreIds) {
-        if (genreIds != null) {
-            for (Integer genreId : genreIds) {
-                genreStorage.findById(genreId);
+    private void validateMpaRating(Integer mpaRatingId) {
+        if (mpaRatingId != null) {
+            try {
+                mpaRatingStorage.findById(mpaRatingId);
+            } catch (NotFoundException e) {
+                throw new NotFoundException("Рейтинг с ID " + mpaRatingId + " не найден");
             }
         }
     }
 
-    private void validateMpaRating(Integer mpaRatingId) {
-        if (mpaRatingId != null) {
-            mpaRatingStorage.findById(mpaRatingId);
+    private void validateGenres(Set<Integer> genreIds) {
+        if (genreIds != null) {
+            for (Integer genreId : genreIds) {
+                try {
+                    genreStorage.findById(genreId);
+                } catch (NotFoundException e) {
+                    throw new NotFoundException("Жанр с ID " + genreId + " не найден");
+                }
+            }
         }
     }
 
     private Film enrichFilm(Film film) {
         if (film.getMpaRatingId() != null) {
-            film.setMpaRating(mpaRatingStorage.findById(film.getMpaRatingId()));
+            MpaRating mpa = mpaRatingStorage.findById(film.getMpaRatingId());
+            film.setMpaRating(mpa);
+            film.setMpa(mpa);
         }
+
         if (film.getGenreIds() != null && !film.getGenreIds().isEmpty()) {
             Set<Genre> genres = film.getGenreIds().stream()
                     .map(genreStorage::findById)
                     .collect(Collectors.toSet());
             film.setGenres(genres);
+        } else {
+            film.setGenres(new HashSet<>());
         }
+
         return film;
     }
 }

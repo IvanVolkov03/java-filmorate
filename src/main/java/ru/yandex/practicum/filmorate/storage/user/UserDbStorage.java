@@ -99,10 +99,10 @@ public class UserDbStorage implements UserStorage {
         findById(userId);
         findById(friendId);
 
-        String sql = "MERGE INTO friendships (user_id, friend_id, status) VALUES (?, ?, 'pending')";
+        String sql = "MERGE INTO friendships (user_id, friend_id, status) VALUES (?, ?, 'confirmed')";
         jdbcTemplate.update(sql, userId, friendId);
 
-        log.info("Запрос в друзья отправлен: userId={}, friendId={}", userId, friendId);
+        log.info("Дружба добавлена: userId={}, friendId={}", userId, friendId);
     }
 
     @Override
@@ -132,10 +132,10 @@ public class UserDbStorage implements UserStorage {
 
         Set<Integer> friends = new HashSet<>();
 
-        String sql1 = "SELECT friend_id FROM friendships WHERE user_id = ? AND status = 'confirmed'";
+        String sql1 = "SELECT friend_id FROM friendships WHERE user_id = ?";
         friends.addAll(jdbcTemplate.queryForList(sql1, Integer.class, userId));
 
-        String sql2 = "SELECT user_id FROM friendships WHERE friend_id = ? AND status = 'confirmed'";
+        String sql2 = "SELECT user_id FROM friendships WHERE friend_id = ?";
         friends.addAll(jdbcTemplate.queryForList(sql2, Integer.class, userId));
 
         return friends;
