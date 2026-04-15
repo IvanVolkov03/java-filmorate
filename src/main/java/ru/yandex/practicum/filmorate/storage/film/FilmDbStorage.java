@@ -4,10 +4,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.rowset.SqlRowSet;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
+import java.sql.Date;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -23,35 +26,26 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public Film create(Film film) {
         validateReleaseDate(film);
-
         String sql = "INSERT INTO films (name, description, release_date, duration, mpa_rating_id) " +
                 "VALUES (?, ?, ?, ?, ?)";
+        KeyHolder keyHolder = new GeneratedKeyHolder();
 
-        jdbcTemplate.update(sql,
-                film.getName(),
-                film.getDescription(),
-                film.getReleaseDate(),
-                film.getDuration(),
-                film.getMpaRatingId()
-        );
-
-        SqlRowSet idRows = jdbcTemplate.queryForRowSet(
-                "SELECT id FROM films WHERE name = ? AND release_date = ?",
-                film.getName(),
-                film.getReleaseDate()
-        );
-
-        if (idRows.next()) {
-            int id = idRows.getInt("id");
-            film.setId(id);
-
-            if (film.getGenreIds() != null && !film.getGenreIds().isEmpty()) {
-                saveFilmGenres(id, film.getGenreIds());
-            }
-
-            log.info("Фильм добавлен в БД: id={}", id);
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(
+                    sql, new String[]{"id"});
+            ps.setString(1, film.getName());
+            ps.setString(2, film.getDescription());
+            ps.setDate(3, Date.valueOf(film.getReleaseDate()));
+            ps.setLong(4, film.getDuration());
+            ps.setObject(5, film.getMpaRatingId());
+            return ps;
+        }, keyHolder);
+        int id = keyHolder.getKey().intValue();
+        film.setId(id);
+        if (film.getGenreIds() != null && !film.getGenreIds().isEmpty()) {
+            saveFilmGenres(id, film.getGenreIds());
         }
-
+        log.info("Фильм добавлен в БД: id={}", id);
         return film;
     }
 
@@ -71,11 +65,9 @@ public class FilmDbStorage implements FilmStorage {
                 film.getMpaRatingId(),
                 film.getId()
         );
-
         if (film.getGenreIds() != null) {
             updateFilmGenres(film.getId(), film.getGenreIds());
         }
-
         log.info("Фильм обновлен в БД: id={}", film.getId());
         return film;
     }
