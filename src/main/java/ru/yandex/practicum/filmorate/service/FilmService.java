@@ -12,7 +12,6 @@ import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.mpa.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
-
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -79,6 +78,7 @@ public class FilmService {
     }
 
     private void validateAndSetIds(Film film) {
+        // Конвертация mpa -> mpaRatingId
         if (film.getMpa() != null && film.getMpa().getId() != null) {
             film.setMpaRatingId(film.getMpa().getId());
         }
@@ -87,7 +87,7 @@ public class FilmService {
             Set<Integer> ids = film.getGenres().stream()
                     .map(Genre::getId)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
             film.setGenreIds(ids);
         }
     }
@@ -135,10 +135,11 @@ public class FilmService {
             film.setMpaRating(mpa);
             film.setMpa(mpa);
         }
+
         if (film.getGenreIds() != null && !film.getGenreIds().isEmpty()) {
             Set<Genre> genres = film.getGenreIds().stream()
                     .map(genreStorage::findById)
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
             film.setGenres(genres);
         } else {
             film.setGenres(new HashSet<>());
