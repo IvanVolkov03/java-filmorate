@@ -5,5 +5,6 @@ import java.util.List;
 
 public interface MpaRatingStorage {
     List<MpaRating> findAll();
+
     MpaRating findById(int id);
 }
