@@ -228,7 +228,10 @@ public class FilmDbStorage implements FilmStorage {
     private void updateFilmGenres(int filmId, Set<Integer> genreIds) {
         jdbcTemplate.update("DELETE FROM film_genres WHERE film_id = ?", filmId);
         if (genreIds != null && !genreIds.isEmpty()) {
-            saveFilmGenres(filmId, genreIds);
+            String sql = "MERGE INTO film_genres (film_id, genre_id) VALUES (?, ?)";
+            for (Integer genreId : genreIds) {
+                jdbcTemplate.update(sql, filmId, genreId);
+            }
         }
     }
 

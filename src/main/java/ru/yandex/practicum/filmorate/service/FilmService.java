@@ -81,7 +81,6 @@ public class FilmService {
         if (film.getMpa() != null && film.getMpa().getId() != null) {
             film.setMpaRatingId(film.getMpa().getId());
         }
-
         if (film.getGenres() != null && !film.getGenres().isEmpty()) {
             Set<Integer> ids = film.getGenres().stream()
                     .map(Genre::getId)
@@ -134,7 +133,6 @@ public class FilmService {
             film.setMpaRating(mpa);
             film.setMpa(mpa);
         }
-
         if (film.getGenreIds() != null && !film.getGenreIds().isEmpty()) {
             Set<Genre> genres = film.getGenreIds().stream()
                     .map(genreStorage::findById)
@@ -143,7 +141,6 @@ public class FilmService {
         } else {
             film.setGenres(new HashSet<>());
         }
-
         return film;
     }
 }
