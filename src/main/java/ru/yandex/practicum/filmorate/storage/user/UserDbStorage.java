@@ -119,10 +119,8 @@ public class UserDbStorage implements UserStorage {
     public void confirmFriend(int userId, int friendId) {
         findById(userId);
         findById(friendId);
-
-        String sql = "UPDATE friendships SET status = 'confirmed' WHERE user_id = ? AND friend_id = ?";
-        jdbcTemplate.update(sql, userId, friendId);
-
+        String sql = "MERGE INTO friendships (user_id, friend_id, status) VALUES (?, ?, 'confirmed')";
+        jdbcTemplate.update(sql, friendId, userId);
         log.info("Дружба подтверждена: userId={}, friendId={}", userId, friendId);
     }
 
@@ -130,15 +128,8 @@ public class UserDbStorage implements UserStorage {
     public Set<Integer> getFriends(int userId) {
         findById(userId);
 
-        Set<Integer> friends = new HashSet<>();
-
-        String sql1 = "SELECT friend_id FROM friendships WHERE user_id = ?";
-        friends.addAll(jdbcTemplate.queryForList(sql1, Integer.class, userId));
-
-        String sql2 = "SELECT user_id FROM friendships WHERE friend_id = ?";
-        friends.addAll(jdbcTemplate.queryForList(sql2, Integer.class, userId));
-
-        return friends;
+        String sql = "SELECT friend_id FROM friendships WHERE user_id = ?";
+        return new HashSet<>(jdbcTemplate.queryForList(sql, Integer.class, userId));
     }
 
     @Override

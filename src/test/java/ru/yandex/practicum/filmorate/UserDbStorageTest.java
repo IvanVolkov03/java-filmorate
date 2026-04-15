@@ -88,23 +88,25 @@ class UserDbStorageTest {
     }
 
     @Test
-    void addFriend_shouldCreatePendingFriendship() {
+    void addFriend_shouldCreateFriendship() {  // ← Переименовали метод
         User u1 = userStorage.create(User.builder()
                 .email("u1@test.com").login("u1").name("U1").birthday(LocalDate.of(1990,1,1)).build());
         User u2 = userStorage.create(User.builder()
                 .email("u2@test.com").login("u2").name("U2").birthday(LocalDate.of(1991,1,1)).build());
 
         userStorage.addFriend(u1.getId(), u2.getId());
+        Set<Integer> friends = userStorage.getFriends(u1.getId());
+        assertThat(friends).contains(u2.getId());  // ← Ожидаем, что друг ЕСТЬ в списке
 
-        // После addFriend дружба в статусе 'pending', поэтому getFriends вернёт пустой список
-        Set<Integer> pendingFriends = userStorage.getFriends(u1.getId());
-        assertThat(pendingFriends).doesNotContain(u2.getId());
-
-        // Проверяем, что заявка создана
+        // Проверяем, что запись в БД создана
         Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM friendships WHERE user_id = ? AND friend_id = ? AND status = 'pending'",
+                "SELECT COUNT(*) FROM friendships WHERE user_id = ? AND friend_id = ?",
                 Integer.class, u1.getId(), u2.getId());
         assertThat(count).isEqualTo(1);
+
+        // Проверяем односторонность: u2 не должен видеть u1 в друзьях, пока не добавит сам
+        Set<Integer> u2Friends = userStorage.getFriends(u2.getId());
+        assertThat(u2Friends).doesNotContain(u1.getId());
     }
 
     @Test
