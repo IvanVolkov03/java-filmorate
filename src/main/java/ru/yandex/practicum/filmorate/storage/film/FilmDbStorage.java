@@ -23,8 +23,10 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public Film create(Film film) {
         validateReleaseDate(film);
+
         String sql = "INSERT INTO films (name, description, release_date, duration, mpa_rating_id) " +
                 "VALUES (?, ?, ?, ?, ?)";
+
         jdbcTemplate.update(sql,
                 film.getName(),
                 film.getDescription(),
@@ -32,6 +34,7 @@ public class FilmDbStorage implements FilmStorage {
                 film.getDuration(),
                 film.getMpaRatingId()
         );
+
         SqlRowSet idRows = jdbcTemplate.queryForRowSet(
                 "SELECT id FROM films WHERE name = ? AND release_date = ?",
                 film.getName(),
@@ -45,8 +48,10 @@ public class FilmDbStorage implements FilmStorage {
             if (film.getGenreIds() != null && !film.getGenreIds().isEmpty()) {
                 saveFilmGenres(id, film.getGenreIds());
             }
+
             log.info("Фильм добавлен в БД: id={}", id);
         }
+
         return film;
     }
 
@@ -54,8 +59,10 @@ public class FilmDbStorage implements FilmStorage {
     public Film update(Film film) {
         validateReleaseDate(film);
         Film existingFilm = findById(film.getId());
+
         String sql = "UPDATE films SET name = ?, description = ?, release_date = ?, " +
                 "duration = ?, mpa_rating_id = ? WHERE id = ?";
+
         jdbcTemplate.update(sql,
                 film.getName(),
                 film.getDescription(),
@@ -64,9 +71,11 @@ public class FilmDbStorage implements FilmStorage {
                 film.getMpaRatingId(),
                 film.getId()
         );
+
         if (film.getGenreIds() != null) {
             updateFilmGenres(film.getId(), film.getGenreIds());
         }
+
         log.info("Фильм обновлен в БД: id={}", film.getId());
         return film;
     }
@@ -77,22 +86,29 @@ public class FilmDbStorage implements FilmStorage {
                 "FROM films f " +
                 "LEFT JOIN film_genres fg ON f.id = fg.film_id " +
                 "ORDER BY f.id";
+
         List<Film> films = new ArrayList<>();
         Map<Integer, Film> filmMap = new HashMap<>();
+
         jdbcTemplate.query(sql, rs -> {
             int filmId = rs.getInt("id");
+
             Film film = filmMap.get(filmId);
             if (film == null) {
                 film = mapFilmFromRow(rs);
-                film.setGenreIds(new HashSet<>());
                 filmMap.put(filmId, film);
                 films.add(film);
             }
+
             Integer genreId = rs.getObject("genre_id", Integer.class);
-            if (genreId != null && film.getGenreIds() != null) {
+            if (genreId != null) {
+                if (film.getGenreIds() == null) {
+                    film.setGenreIds(new HashSet<>());
+                }
                 film.getGenreIds().add(genreId);
             }
         });
+
         return films;
     }
 
@@ -104,18 +120,20 @@ public class FilmDbStorage implements FilmStorage {
                 "WHERE f.id = ?";
 
         List<Film> filmContainer = new ArrayList<>();
-        Set<Integer> genreIds = new HashSet<>();
 
         jdbcTemplate.query(sql, rs -> {
             if (filmContainer.isEmpty()) {
                 Film film = mapFilmFromRow(rs);
-                film.setGenreIds(genreIds);
                 filmContainer.add(film);
             }
 
+            Film film = filmContainer.get(0);
             Integer genreId = rs.getObject("genre_id", Integer.class);
             if (genreId != null) {
-                genreIds.add(genreId);
+                if (film.getGenreIds() == null) {
+                    film.setGenreIds(new HashSet<>());
+                }
+                film.getGenreIds().add(genreId);
             }
         }, id);
 
@@ -168,13 +186,15 @@ public class FilmDbStorage implements FilmStorage {
             Film film = filmMap.get(filmId);
             if (film == null) {
                 film = mapFilmFromRow(rs);
-                film.setGenreIds(new HashSet<>());
                 filmMap.put(filmId, film);
                 films.add(film);
             }
 
             Integer genreId = rs.getObject("genre_id", Integer.class);
-            if (genreId != null && film.getGenreIds() != null) {
+            if (genreId != null) {
+                if (film.getGenreIds() == null) {
+                    film.setGenreIds(new HashSet<>());
+                }
                 film.getGenreIds().add(genreId);
             }
         }, count);
@@ -213,8 +233,8 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     private void validateReleaseDate(Film film) {
-        LocalDate cinemaBirthday = LocalDate.of(1895, 12, 28);
-        if (film.getReleaseDate() != null && film.getReleaseDate().isBefore(cinemaBirthday)) {
+        LocalDate CINEMA_BIRTHDAY = LocalDate.of(1895, 12, 28);
+        if (film.getReleaseDate() != null && film.getReleaseDate().isBefore(CINEMA_BIRTHDAY)) {
             throw new ru.yandex.practicum.filmorate.exception.ValidationException(
                     "Дата релиза — не раньше 28 декабря 1895 года."
             );

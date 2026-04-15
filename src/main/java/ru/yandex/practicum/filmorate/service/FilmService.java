@@ -34,6 +34,7 @@ public class FilmService {
         validateFilm(film);
         validateGenres(film.getGenreIds());
         validateMpaRating(film.getMpaRatingId());
+
         Film saved = filmStorage.create(film);
         return enrichFilm(saved);
     }
@@ -42,6 +43,7 @@ public class FilmService {
         validateFilm(film);
         validateGenres(film.getGenreIds());
         validateMpaRating(film.getMpaRatingId());
+
         Film updated = filmStorage.update(film);
         return enrichFilm(updated);
     }
@@ -91,16 +93,6 @@ public class FilmService {
         }
     }
 
-    private void validateMpaRating(Integer mpaRatingId) {
-        if (mpaRatingId != null) {
-            try {
-                mpaRatingStorage.findById(mpaRatingId);
-            } catch (NotFoundException e) {
-                throw new NotFoundException("Рейтинг с ID " + mpaRatingId + " не найден");
-            }
-        }
-    }
-
     private void validateGenres(Set<Integer> genreIds) {
         if (genreIds != null) {
             for (Integer genreId : genreIds) {
@@ -109,6 +101,16 @@ public class FilmService {
                 } catch (NotFoundException e) {
                     throw new NotFoundException("Жанр с ID " + genreId + " не найден");
                 }
+            }
+        }
+    }
+
+    private void validateMpaRating(Integer mpaRatingId) {
+        if (mpaRatingId != null) {
+            try {
+                mpaRatingStorage.findById(mpaRatingId);
+            } catch (NotFoundException e) {
+                throw new NotFoundException("Рейтинг с ID " + mpaRatingId + " не найден");
             }
         }
     }
@@ -125,10 +127,10 @@ public class FilmService {
                     .map(genreStorage::findById)
                     .collect(Collectors.toSet());
             film.setGenres(genres);
-        } else {
+        } else if (film.getGenreIds() == null) {
+            // Если genreIds null — установить пустой список
             film.setGenres(new HashSet<>());
         }
-
         return film;
     }
 }
