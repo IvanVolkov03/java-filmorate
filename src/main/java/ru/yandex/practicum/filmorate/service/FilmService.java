@@ -14,9 +14,7 @@ import ru.yandex.practicum.filmorate.storage.mpa.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,6 +30,7 @@ public class FilmService {
 
     public Film create(Film film) {
         validateFilm(film);
+        validateAndSetIds(film);
         validateGenres(film.getGenreIds());
         validateMpaRating(film.getMpaRatingId());
 
@@ -41,6 +40,7 @@ public class FilmService {
 
     public Film update(Film film) {
         validateFilm(film);
+        validateAndSetIds(film);
         validateGenres(film.getGenreIds());
         validateMpaRating(film.getMpaRatingId());
 
@@ -76,6 +76,20 @@ public class FilmService {
         return filmStorage.getPopularFilms(count).stream()
                 .map(this::enrichFilm)
                 .collect(Collectors.toList());
+    }
+
+    private void validateAndSetIds(Film film) {
+        if (film.getMpa() != null && film.getMpa().getId() != null) {
+            film.setMpaRatingId(film.getMpa().getId());
+        }
+
+        if (film.getGenres() != null && !film.getGenres().isEmpty()) {
+            Set<Integer> ids = film.getGenres().stream()
+                    .map(Genre::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            film.setGenreIds(ids);
+        }
     }
 
     private void validateFilm(Film film) {
@@ -121,16 +135,15 @@ public class FilmService {
             film.setMpaRating(mpa);
             film.setMpa(mpa);
         }
-
         if (film.getGenreIds() != null && !film.getGenreIds().isEmpty()) {
             Set<Genre> genres = film.getGenreIds().stream()
                     .map(genreStorage::findById)
                     .collect(Collectors.toSet());
             film.setGenres(genres);
-        } else if (film.getGenreIds() == null) {
-            // Если genreIds null — установить пустой список
+        } else {
             film.setGenres(new HashSet<>());
         }
+
         return film;
     }
 }
