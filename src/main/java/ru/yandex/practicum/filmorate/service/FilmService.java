@@ -78,7 +78,6 @@ public class FilmService {
     }
 
     private void validateAndSetIds(Film film) {
-        // Конвертация mpa -> mpaRatingId
         if (film.getMpa() != null && film.getMpa().getId() != null) {
             film.setMpaRatingId(film.getMpa().getId());
         }
