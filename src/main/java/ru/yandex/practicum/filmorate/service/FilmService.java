@@ -2,12 +2,20 @@ package ru.yandex.practicum.filmorate.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
+import ru.yandex.practicum.filmorate.storage.mpa.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
-
-import java.util.List;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -15,21 +23,41 @@ import java.util.List;
 public class FilmService {
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
+    private final GenreStorage genreStorage;
+    private final MpaRatingStorage mpaRatingStorage;
+    private final JdbcTemplate jdbcTemplate;
+
+    private static final LocalDate CINEMA_BIRTHDAY = LocalDate.of(1895, 12, 28);
 
     public Film create(Film film) {
-        return filmStorage.create(film);
+        validateFilm(film);
+        validateAndSetIds(film);
+        validateGenres(film.getGenreIds());
+        validateMpaRating(film.getMpaRatingId());
+
+        Film saved = filmStorage.create(film);
+        return enrichFilm(saved);
     }
 
     public Film update(Film film) {
-        return filmStorage.update(film);
+        validateFilm(film);
+        validateAndSetIds(film);
+        validateGenres(film.getGenreIds());
+        validateMpaRating(film.getMpaRatingId());
+
+        Film updated = filmStorage.update(film);
+        return enrichFilm(updated);
     }
 
     public List<Film> findAll() {
-        return filmStorage.findAll();
+        return filmStorage.findAll().stream()
+                .map(this::enrichFilm)
+                .collect(Collectors.toList());
     }
 
     public Film findById(int id) {
-        return filmStorage.findById(id);
+        Film film = filmStorage.findById(id);
+        return enrichFilm(film);
     }
 
     public void addLike(int filmId, int userId) {
@@ -46,6 +74,87 @@ public class FilmService {
 
     public List<Film> getPopularFilms(int count) {
         log.info("Получение популярных фильмов, count={}", count);
-        return filmStorage.getPopularFilms(count);
+        return filmStorage.getPopularFilms(count).stream()
+                .map(this::enrichFilm)
+                .collect(Collectors.toList());
+    }
+
+    private void validateAndSetIds(Film film) {
+        if (film.getMpa() != null && film.getMpa().getId() != null) {
+            film.setMpaRatingId(film.getMpa().getId());
+        }
+        if (film.getGenres() != null && !film.getGenres().isEmpty()) {
+            Set<Integer> ids = film.getGenres().stream()
+                    .map(Genre::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            film.setGenreIds(ids);
+        }
+    }
+
+    private void validateFilm(Film film) {
+        if (film.getName() == null || film.getName().isBlank()) {
+            throw new ValidationException("Название фильма не может быть пустым");
+        }
+        if (film.getDescription() != null && film.getDescription().length() > 200) {
+            throw new ValidationException("Максимальная длина описания — 200 символов");
+        }
+        if (film.getReleaseDate() != null && film.getReleaseDate().isBefore(CINEMA_BIRTHDAY)) {
+            throw new ValidationException("Дата релиза — не раньше 28 декабря 1895 года");
+        }
+        if (film.getDuration() != null && film.getDuration() <= 0) {
+            throw new ValidationException("Продолжительность фильма должна быть положительной");
+        }
+    }
+
+    private void validateGenres(Set<Integer> genreIds) {
+        if (genreIds == null || genreIds.isEmpty()) {
+            return;
+        }
+        String sql = "SELECT COUNT(*) FROM genres WHERE id IN (" +
+                String.join(",", Collections.nCopies(genreIds.size(), "?")) + ")";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, genreIds.toArray());
+        if (count == null || count != genreIds.size()) {
+            throw new NotFoundException("Один или несколько жанров не найдены");
+        }
+    }
+
+    private void validateMpaRating(Integer mpaRatingId) {
+        if (mpaRatingId != null) {
+            try {
+                mpaRatingStorage.findById(mpaRatingId);
+            } catch (NotFoundException e) {
+                throw new NotFoundException("Рейтинг с ID " + mpaRatingId + " не найден");
+            }
+        }
+    }
+
+    private Film enrichFilm(Film film) {
+        if (film.getMpaRatingId() != null) {
+            MpaRating mpa = mpaRatingStorage.findById(film.getMpaRatingId());
+            film.setMpaRating(mpa);
+            film.setMpa(mpa);
+        }
+        if (film.getGenreIds() != null && !film.getGenreIds().isEmpty()) {
+            String sql = "SELECT id, name FROM genres WHERE id IN (" +
+                    String.join(",", Collections.nCopies(film.getGenreIds().size(), "?")) + ")";
+            List<Genre> genres = jdbcTemplate.query(sql, (rs, rowNum) ->
+                            new Genre(rs.getInt("id"), rs.getString("name")),
+                    film.getGenreIds().toArray()
+            );
+            Set<Genre> orderedGenres = new LinkedHashSet<>();
+            for (Integer genreId : film.getGenreIds()) {
+                for (Genre genre : genres) {
+                    if (genre.getId().equals(genreId)) {
+                        orderedGenres.add(genre);
+                        break;
+                    }
+                }
+            }
+            film.setGenres(orderedGenres);
+        } else {
+            film.setGenres(new HashSet<>());
+        }
+        return film;
     }
 }

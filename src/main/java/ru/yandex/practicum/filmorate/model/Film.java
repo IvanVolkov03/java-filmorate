@@ -1,26 +1,43 @@
 package ru.yandex.practicum.filmorate.model;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-
+import lombok.NoArgsConstructor;
 import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Film {
-    private int id;
-
-    @NotBlank(message = "Название фильма не может быть пустым")
+    private Integer id;
     private String name;
-
-    @Size(max = 200, message = "Максимальная длина описания — 200 символов")
     private String description;
-
-    @NotNull(message = "Дата релиза должна быть указана")
     private LocalDate releaseDate;
+    private Long duration;
+    private Integer mpaRatingId;
+    private Set<Integer> genreIds;
+    private MpaRating mpaRating;
+    private MpaRating mpa;
+    private Set<Genre> genres;
 
-    @Positive(message = "Продолжительность фильма должна быть положительной")
-    private long duration;
+    public void setMpa(MpaRating mpa) {
+        this.mpa = mpa;
+        if (mpa != null && mpa.getId() != null) {
+            this.mpaRatingId = mpa.getId();
+        }
+    }
+
+    public void setGenres(Set<Genre> genres) {
+        this.genres = genres;
+        if (genres != null && !genres.isEmpty()) {
+            this.genreIds = genres.stream()
+                    .map(Genre::getId)
+                    .filter(id -> id != null)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+        }
+    }
 }
