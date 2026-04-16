@@ -3,6 +3,7 @@ package ru.yandex.practicum.filmorate.storage.film;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -211,19 +212,40 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     private void saveFilmGenres(int filmId, Set<Integer> genreIds) {
-        String sql = "MERGE INTO film_genres (film_id, genre_id) VALUES (?, ?)";
-        for (Integer genreId : genreIds) {
-            jdbcTemplate.update(sql, filmId, genreId);
+        if (genreIds == null || genreIds.isEmpty()) {
+            return;
         }
+        String sql = "MERGE INTO film_genres (film_id, genre_id) VALUES (?, ?)";
+        jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+            private final List<Integer> genreList = new ArrayList<>(genreIds);
+            @Override
+            public void setValues(PreparedStatement ps, int i) throws SQLException {
+                ps.setInt(1, filmId);
+                ps.setInt(2, genreList.get(i));
+            }
+            @Override
+            public int getBatchSize() {
+                return genreList.size();
+            }
+        });
     }
 
     private void updateFilmGenres(int filmId, Set<Integer> genreIds) {
         jdbcTemplate.update("DELETE FROM film_genres WHERE film_id = ?", filmId);
         if (genreIds != null && !genreIds.isEmpty()) {
             String sql = "MERGE INTO film_genres (film_id, genre_id) VALUES (?, ?)";
-            for (Integer genreId : genreIds) {
-                jdbcTemplate.update(sql, filmId, genreId);
-            }
+            jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+                private final List<Integer> genreList = new ArrayList<>(genreIds);
+                @Override
+                public void setValues(PreparedStatement ps, int i) throws SQLException {
+                    ps.setInt(1, filmId);
+                    ps.setInt(2, genreList.get(i));
+                }
+                @Override
+                public int getBatchSize() {
+                    return genreList.size();
+                }
+            });
         }
     }
 

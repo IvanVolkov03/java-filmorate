@@ -2,6 +2,7 @@ package ru.yandex.practicum.filmorate.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -24,6 +25,7 @@ public class FilmService {
     private final UserStorage userStorage;
     private final GenreStorage genreStorage;
     private final MpaRatingStorage mpaRatingStorage;
+    private final JdbcTemplate jdbcTemplate;
 
     private static final LocalDate CINEMA_BIRTHDAY = LocalDate.of(1895, 12, 28);
 
@@ -106,14 +108,14 @@ public class FilmService {
     }
 
     private void validateGenres(Set<Integer> genreIds) {
-        if (genreIds != null) {
-            for (Integer genreId : genreIds) {
-                try {
-                    genreStorage.findById(genreId);
-                } catch (NotFoundException e) {
-                    throw new NotFoundException("Жанр с ID " + genreId + " не найден");
-                }
-            }
+        if (genreIds == null || genreIds.isEmpty()) {
+            return;
+        }
+        String sql = "SELECT COUNT(*) FROM genres WHERE id IN (" +
+                String.join(",", Collections.nCopies(genreIds.size(), "?")) + ")";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, genreIds.toArray());
+        if (count == null || count != genreIds.size()) {
+            throw new NotFoundException("Один или несколько жанров не найдены");
         }
     }
 
@@ -134,10 +136,22 @@ public class FilmService {
             film.setMpa(mpa);
         }
         if (film.getGenreIds() != null && !film.getGenreIds().isEmpty()) {
-            Set<Genre> genres = film.getGenreIds().stream()
-                    .map(genreStorage::findById)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-            film.setGenres(genres);
+            String sql = "SELECT id, name FROM genres WHERE id IN (" +
+                    String.join(",", Collections.nCopies(film.getGenreIds().size(), "?")) + ")";
+            List<Genre> genres = jdbcTemplate.query(sql, (rs, rowNum) ->
+                            new Genre(rs.getInt("id"), rs.getString("name")),
+                    film.getGenreIds().toArray()
+            );
+            Set<Genre> orderedGenres = new LinkedHashSet<>();
+            for (Integer genreId : film.getGenreIds()) {
+                for (Genre genre : genres) {
+                    if (genre.getId().equals(genreId)) {
+                        orderedGenres.add(genre);
+                        break;
+                    }
+                }
+            }
+            film.setGenres(orderedGenres);
         } else {
             film.setGenres(new HashSet<>());
         }
