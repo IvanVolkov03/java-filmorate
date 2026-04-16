@@ -238,7 +238,7 @@ public class FilmDbStorage implements FilmStorage {
             String sql = "MERGE INTO film_genres (film_id, genre_id) VALUES (?, ?)";
             jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
                 private final List<Integer> genreList = new ArrayList<>(genreIds);
-                
+
                 @Override
                 public void setValues(PreparedStatement ps, int i) throws SQLException {
                     ps.setInt(1, filmId);
